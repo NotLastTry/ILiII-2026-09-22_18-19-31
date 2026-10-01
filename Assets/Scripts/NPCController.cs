@@ -1,126 +1,144 @@
 using System;
 using UnityEngine;
 
+public enum NPCQuestState
+{
+    Idle,           // NPC ждёт игрока
+    Offer,          // Игрок в радиусе, NPC предлагает квест
+    QuestActive,    // Квест принят, игрок собирает предметы
+    QuestDone,      // Игрок собрал нужное количество
+    RewardGiven     // Награда выдана, квест завершён
+}
+
 public class NPCController : MonoBehaviour
 {
-    float distance;
-    public bool isInRadius = false;
-    float radius = 4f;
+    [Header("Interaction")]
+    public float radius = 4f;
+    [SerializeField] public bool isInRadius = false;
 
-    int questItemCount = 3;
+    [Header("Quest")]
+    public int questItemCount = 3;
+    public NPCQuestState questState = NPCQuestState.Idle;
 
-    Animator animator;
+    // Флаги для Animator
+    [SerializeField] public bool isTalking = false;
+    [SerializeField] public bool isQuestAccepted = false;
+    [SerializeField] public bool isQuestDone = false;
 
-    //["Bools"]
-    [SerializeField]
-    public bool isTalking = false;
-    [SerializeField]
-    public bool isQuestAccepted = false;
-    [SerializeField]
-    public bool isQuestDone = false;
-
-    GameObject player;
-    PlayerInventory inventory;
+    private GameObject player;
+    private PlayerInventory inventory;
+    private Animator animator;
 
     private void Start()
     {
         player = GameObject.FindWithTag("Player");
+        if (player == null)
+        {
+            Debug.LogError("Игрок с тегом 'Player' не найден!");
+            enabled = false;
+            return;
+        }
+
         inventory = player.GetComponent<PlayerInventory>();
+        if (inventory == null)
+            Debug.LogWarning("У игрока нет компонента PlayerInventory!");
+
         animator = GetComponentInChildren<Animator>();
     }
 
     private void Update()
     {
-        IsTalking();
-        IsQuestAccepted();
-        IsQuestDone();
-        QuestTurnIn();
+        UpdateDistance();
+        HandleQuestInput();
+        CheckQuestProgress();
         AnimationControl();
     }
 
-    public void AnimationControl()
+    // --- 1. Проверка расстояния ---
+    private void UpdateDistance()
     {
-        if (isTalking)
-        {
-            animator.SetBool("isTalking", true);
-        }
-        else
-        {
-            animator.SetBool("isTalking", false);
-        }
-
-        if (isQuestAccepted)
-        {
-            animator.SetBool("isQuestAccepted", true);
-        }
-        else
-        {
-            animator.SetBool("isQuestAccepted", false);
-        }
-
-        if (isQuestDone)
-        {
-            animator.SetBool("isQuestDone", true);
-        }
-        else
-        {
-            animator.SetBool("isQuestDone", false);
-        }
-    }
-
-    private void IsTalking()
-    {
-        distance = Vector3.Distance(transform.position, player.transform.position);
+        if (player == null) return;
+        float distance = Vector3.Distance(transform.position, player.transform.position);
         isInRadius = distance <= radius;
-        if (isInRadius)
-        {
-            isTalking = true;
-        }
-        else
-        {
-            isTalking = false;
-        }
     }
 
-    private void IsQuestAccepted()
+    // --- 2. Обработка ввода ---
+    private void HandleQuestInput()
     {
-        if (isInRadius && Input.GetKeyDown(KeyCode.E))
+        // Взятие квеста
+        if (isInRadius && questState == NPCQuestState.Idle && Input.GetKeyDown(KeyCode.E))
         {
+            questState = NPCQuestState.Offer;
+            TriggerNPCDialogue("Соберёшь мне ягоды?");
+        }
+        // Принятие квеста
+        else if (isInRadius && questState == NPCQuestState.Offer && Input.GetKeyDown(KeyCode.E))
+        {
+            questState = NPCQuestState.QuestActive;
             isQuestAccepted = true;
-            TriggerNPCDialogue();
-
+            TriggerNPCDialogue("Отлично! Принеси мне 3 ягоды.");
         }
-
-        if (Input.GetKeyDown(KeyCode.F))
+        // Сдача квеста
+        else if (isInRadius && questState == NPCQuestState.QuestDone && Input.GetKeyDown(KeyCode.F))
         {
+            TurnInQuest();
+        }
+        // Отмена (только если квест активен)
+        else if (questState == NPCQuestState.QuestActive && Input.GetKeyDown(KeyCode.F))
+        {
+            questState = NPCQuestState.Idle;
             isQuestAccepted = false;
+            TriggerNPCDialogue("Ладно, вернёшься — поговорим.");
         }
     }
 
-    private void IsQuestDone()
+    // --- 3. Проверка прогресса квеста ---
+    private void CheckQuestProgress()
     {
-        if (inventory.questItem.count >= questItemCount)
+        if (inventory == null || inventory.questItem == null) return;
+
+        if (questState == NPCQuestState.QuestActive &&
+            inventory.questItem.count >= questItemCount)
         {
+            questState = NPCQuestState.QuestDone;
             isQuestDone = true;
         }
-        else
-        {
-            isQuestDone = false;
-        }
     }
 
-    private void QuestTurnIn()
+    // --- 4. Сдача квеста ---
+    private void TurnInQuest()
     {
-        if (isTalking && isQuestDone && isInRadius && Input.GetKeyDown(KeyCode.F))
-        {
-            isQuestDone = false;
-            inventory.questItem.ResetCount();
-        }
+        isQuestDone = false;
+        isQuestAccepted = false;
+        questState = NPCQuestState.RewardGiven;
+
+        inventory.questItem.ResetCount();
+        TriggerNPCDialogue("Спасибо! Вот твоя награда.");
+        // Здесь можно выдать предмет/опыт
     }
 
-    private void TriggerNPCDialogue()
+    // --- 5. Анимация ---
+    public void AnimationControl()
     {
-        Debug.Log("Соберёшь мне ягоды?");
+        if (animator == null) return;
+        animator.SetBool("isTalking", isTalking);
+        animator.SetBool("isQuestAccepted", isQuestAccepted);
+        animator.SetBool("isQuestDone", isQuestDone);
+    }
 
+    private void TriggerNPCDialogue(string text)
+    {
+        Debug.Log($"[{name}]: {text}");
+        isTalking = true;
+        // Здесь можно вызвать UI-диалог
+        Invoke(nameof(StopTalking), 3f); // через 3 сек — закончить разговор
+    }
+
+    private void StopTalking() => isTalking = false;
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, radius);
     }
 }

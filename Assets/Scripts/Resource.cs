@@ -2,39 +2,75 @@ using UnityEngine;
 
 public class Resource : MonoBehaviour
 {
-    GameObject player;
-    PlayerInventory inventory;
+    [Header("Detection")]
+    public float maxDistance = 15f;
+    public string resourceLayerName = "Resource";
 
-    public float maxDistance = 5f;
+    private GameObject player;
+    private PlayerInventory inventory;
+    private int layerMask;
+    private Camera cam;
+
     void Start()
     {
         player = GameObject.FindWithTag("Player");
+        if (player == null)
+        {
+            Debug.LogError("Игрок с тегом 'Player' не найден!");
+            enabled = false;
+            return;
+        }
+
         inventory = player.GetComponent<PlayerInventory>();
+        if (inventory == null)
+            Debug.LogWarning("У игрока нет PlayerInventory!");
+
+        int layerIndex = LayerMask.NameToLayer(resourceLayerName);
+        if (layerIndex == -1)
+        {
+            Debug.LogError($"Слой '{resourceLayerName}' не существует!");
+            enabled = false;
+            return;
+        }
+        layerMask = 1 << layerIndex;
+
+        cam = Camera.main;
+        if (cam == null)
+        {
+            Debug.LogError("Camera.main не найдена! Проверьте тег камеры.");
+            enabled = false;
+        }
     }
 
     void Update()
     {
         GetResource();
+
     }
 
     public void GetResource()
     {
-        Ray ray = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-        RaycastHit hit;
+        // Стреляем из центра экрана
+        Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
 
-        // Проверяем, попал ли луч в объект
-        if (Physics.Raycast(ray, out hit, maxDistance))
+        int layerMask = LayerMask.GetMask("Resource");
+
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, maxDistance, layerMask, QueryTriggerInteraction.Ignore))
         {
-            // Проверяем имя или тег конкретного объекта
+            Debug.Log($"Попадание: {hit.collider.tag} ({hit.collider.name})");
+
             if (hit.collider.CompareTag("Resource"))
             {
-                if (Input.GetKeyDown(KeyCode.E))
+                if (Input.GetKeyDown(KeyCode.R))
                 {
-                    inventory.questItem.IncreaseCount();
-
+                    if (inventory != null && inventory.questItem != null)
+                        inventory.questItem.IncreaseCount();
+                    else
+                        Debug.LogWarning("Инвентарь или questItem не готовы!");
                 }
             }
         }
-
+        // Если hit не сработал — ничего не делаем, hit.collider не трогаем
     }
 }

@@ -32,7 +32,7 @@ public class ThirdPersonCamera : MonoBehaviour
     {
         if (target == null)
         {
-            var pc = FindObjectOfType<PlayerController>();
+            var pc = FindAnyObjectByType<PlayerController>();
             if (pc != null) target = pc.transform;
         }
 
