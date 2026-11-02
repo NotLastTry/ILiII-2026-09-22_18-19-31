@@ -1,3 +1,4 @@
+using LabGame;
 using UnityEngine;
 
 public class ThirdPersonCamera : MonoBehaviour
@@ -45,6 +46,9 @@ public class ThirdPersonCamera : MonoBehaviour
     void LateUpdate()
     {
         if (target == null) return;
+
+        // Пока открыт инвентарь, камера не вращается.
+        if (GameplayInput.Locked) return;
 
         // 1. Ввод мыши
         float mx = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;

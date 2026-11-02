@@ -1,3 +1,4 @@
+using LabGame;
 using UnityEngine;
 
 public class CameraController : MonoBehaviour
@@ -39,6 +40,9 @@ public class CameraController : MonoBehaviour
 
     private void Update()
     {
+        // Пока открыт инвентарь, камера не вращается.
+        if (GameplayInput.Locked) return;
+
         // Получаем значения движения мыши, умноженные на чувствительность и время
         float mouseX = lookInput.x * mouseSensitivity * Time.deltaTime;
         float mouseY = lookInput.y * mouseSensitivity * Time.deltaTime;

@@ -1,4 +1,5 @@
 using System;
+using LabGame;
 using UnityEngine;
 
 public enum NPCQuestState
@@ -29,6 +30,8 @@ public class NPCController : MonoBehaviour
     private PlayerInventory inventory;
     private Animator animator;
 
+    private NPCQuestState lastNotifiedQuestState = (NPCQuestState)(-1);
+
     private void Start()
     {
         player = GameObject.FindWithTag("Player");
@@ -52,6 +55,16 @@ public class NPCController : MonoBehaviour
         HandleQuestInput();
         CheckQuestProgress();
         AnimationControl();
+        NotifyQuestStateIfChanged();
+    }
+
+    // --- Сообщаем остальным системам (ПЗ №8) об изменении состояния квеста ---
+    private void NotifyQuestStateIfChanged()
+    {
+        if (questState == lastNotifiedQuestState) return;
+
+        lastNotifiedQuestState = questState;
+        GameEventBus.RaiseQuestStateChanged((int)questState);
     }
 
     // --- 1. Проверка расстояния ---
@@ -65,6 +78,9 @@ public class NPCController : MonoBehaviour
     // --- 2. Обработка ввода ---
     private void HandleQuestInput()
     {
+        // Инвентарь открыт — квестовые клавиши не обрабатываем.
+        if (GameplayInput.Locked) return;
+
         // Взятие квеста
         if (isInRadius && questState == NPCQuestState.Idle && Input.GetKeyDown(KeyCode.E))
         {

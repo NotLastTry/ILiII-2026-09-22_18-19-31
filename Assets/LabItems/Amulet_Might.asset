@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3379abc7448ef9640a53734e81f921af, type: 3}
+  m_Name: Amulet_Might
+  m_EditorClassIdentifier: LabGame::LabGame.Items.ItemDefinition
+  itemId: amulet_might
+  displayName: "\u0410\u043C\u0443\u043B\u0435\u0442 \u0441\u0438\u043B\u044B"
+  description: "\u0421\u043B\u0430\u0431\u044B\u0439, \u043D\u043E \u043F\u0440\u0438\u044F\u0442\u043D\u044B\u0439
+    \u043F\u0440\u0438\u0440\u043E\u0441\u0442 \u043A \u0430\u0442\u0430\u043A\u0435
+    \u0438 \u043A\u0440\u0438\u0442\u0443."
+  category: 2
+  equipSlot: 7
+  maxStack: 1
+  weight: 0.2
+  goldValue: 60
+  icon: {fileID: 0}
+  tint: {r: 0.86, g: 0.66, b: 0.26, a: 1}
+  worldPrefab: {fileID: 0}
+  modifiers:
+  - stat: 1
+    flat: 5
+    percent: 0
+  - stat: 5
+    flat: 0
+    percent: 0.05
