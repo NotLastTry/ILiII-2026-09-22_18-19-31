@@ -1,6 +1,12 @@
 using LabGame;
+using LabGame.Controls;
 using UnityEngine;
 
+/// <summary>
+/// Читает намерение игрока один раз за кадр и отдаёт его в удобном виде
+/// остальным системам движения. Источник ввода (клавиатура, геймпад,
+/// сенсорный джойстик) определяется в <see cref="InputRouter"/>.
+/// </summary>
 public class InputReader : MonoBehaviour
 {
     public Vector2 MoveInput { get; private set; }   // x = влево/вправо, y = вперёд/назад
@@ -8,6 +14,15 @@ public class InputReader : MonoBehaviour
     public bool JumpHeld { get; private set; }
     public bool JumpReleased { get; private set; }
     public bool CrouchHeld { get; private set; }
+
+    /// <summary>Маршрутизатор ввода на этом персонаже.</summary>
+    public InputRouter Router { get; private set; }
+
+    private void Awake()
+    {
+        Router = GetComponent<InputRouter>();
+        if (Router == null) Router = gameObject.AddComponent<InputRouter>();
+    }
 
     public void Read()
     {
@@ -22,13 +37,12 @@ public class InputReader : MonoBehaviour
             return;
         }
 
-        float h = Input.GetAxisRaw("Horizontal");
-        float v = Input.GetAxisRaw("Vertical");
-        MoveInput = new Vector2(h, v);
+        var state = PlayerControls.State;
 
-        JumpPressed = Input.GetButtonDown("Jump");
-        JumpHeld = Input.GetButton("Jump");
-        JumpReleased = Input.GetButtonUp("Jump");
-        CrouchHeld = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
+        MoveInput = state.Move;
+        JumpPressed = state.JumpPressed;
+        JumpHeld = state.JumpHeld;
+        JumpReleased = state.JumpReleased;
+        CrouchHeld = state.CrouchHeld;
     }
 }

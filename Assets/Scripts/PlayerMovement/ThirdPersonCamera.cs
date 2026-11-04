@@ -1,4 +1,5 @@
 using LabGame;
+using LabGame.Controls;
 using UnityEngine;
 
 public class ThirdPersonCamera : MonoBehaviour
@@ -50,9 +51,11 @@ public class ThirdPersonCamera : MonoBehaviour
         // Пока открыт инвентарь, камера не вращается.
         if (GameplayInput.Locked) return;
 
-        // 1. Ввод мыши
-        float mx = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float my = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime * (invertY ? 1f : -1f);
+        // 1. Обзор: мышь, правый стик геймпада или свайп по экрану.
+        Vector2 look = PlayerControls.Look;
+
+        float mx = look.x * mouseSensitivity * Time.deltaTime;
+        float my = look.y * mouseSensitivity * Time.deltaTime * (invertY ? 1f : -1f);
 
         yaw += mx;
         pitch += my;

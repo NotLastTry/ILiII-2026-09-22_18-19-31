@@ -1,6 +1,8 @@
+using LabGame.Controls;
 using LabGame.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace LabGame
@@ -23,6 +25,10 @@ namespace LabGame
         private Text promptText;
         private Text chaosText;
         private Image chaosBadge;
+
+        private Text deviceText;
+        private Text deviceDetailsText;
+        private float deviceRefreshTimer;
 
         private float toastTimer;
 
@@ -62,6 +68,9 @@ namespace LabGame
             // Интерактор добавляем на игрока, если его ещё нет.
             if (player != null && player.GetComponent<PlayerInteractor>() == null)
                 player.gameObject.AddComponent<PlayerInteractor>();
+
+            // Сенсорный слой создаём раньше инвентаря, чтобы он оказался ниже него.
+            TouchControlsUI.Create(Root);
 
             Inventory = InventoryUI.Create(this, player);
         }
@@ -112,6 +121,22 @@ namespace LabGame
 
             chaosPanel.transform.parent.gameObject.SetActive(false);
 
+            // Индикатор устройства ввода — в правом верхнем углу (ПЗ №2).
+            var devicePanel = UIFactory.CreatePanel(Root, "DevicePanel", 0f, 0f, 560f, 96f,
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+
+            var deviceRect = (RectTransform)devicePanel.transform.parent;
+            deviceRect.anchorMin = deviceRect.anchorMax = new Vector2(1f, 1f);
+            deviceRect.pivot = new Vector2(1f, 1f);
+            deviceRect.anchoredPosition = new Vector2(-24f, -24f);
+            deviceRect.sizeDelta = new Vector2(560f, 96f);
+
+            deviceText = UIFactory.CreateText(devicePanel.transform, "Device", string.Empty, 16,
+                UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 536f, 26f);
+
+            deviceDetailsText = UIFactory.CreateText(devicePanel.transform, "Details", string.Empty, 13,
+                UIFactory.TextDim, TextAnchor.UpperLeft, 12f, 36f, 536f, 52f);
+
             ChaosHud = this;
         }
 
@@ -144,7 +169,35 @@ namespace LabGame
                     toastText.color = color;
                 }
             }
+
+            UpdateDeviceLabel();
         }
+
+        /// <summary>Показывает, какое устройство сейчас активно и что вообще подключено.</summary>
+        private void UpdateDeviceLabel()
+        {
+            deviceRefreshTimer -= Time.unscaledDeltaTime;
+            if (deviceRefreshTimer > 0f) return;
+
+            deviceRefreshTimer = 0.5f;
+
+            var router = InputRouter.Instance;
+            if (router == null || deviceText == null) return;
+
+            string mode = router.ForcedDevice == InputDeviceKind.Auto ? "авто" : "вручную";
+
+            deviceText.text =
+                $"Устройство: {DeviceDetection.RussianName(router.ActiveDevice)} ({mode})   F1 — сменить";
+
+            if (deviceDetailsText != null)
+            {
+                deviceDetailsText.text =
+                    $"Клавиатура: {YesNo(Keyboard.current != null)}   Мышь: {YesNo(Mouse.current != null)}\n" +
+                    $"Геймпад: {YesNo(Gamepad.current != null)}   Тачскрин: {YesNo(Touchscreen.current != null)}";
+            }
+        }
+
+        private static string YesNo(bool value) => value ? "да" : "нет";
 
         private void OnDestroy()
         {

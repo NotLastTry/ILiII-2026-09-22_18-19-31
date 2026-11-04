@@ -1,5 +1,6 @@
 using System;
 using LabGame;
+using LabGame.Controls;
 using UnityEngine;
 
 public enum NPCQuestState
@@ -81,26 +82,30 @@ public class NPCController : MonoBehaviour
         // Инвентарь открыт — квестовые клавиши не обрабатываем.
         if (GameplayInput.Locked) return;
 
+        // Одно и то же действие доступно и с клавиатуры, и с экранной кнопки.
+        bool interact = PlayerControls.InteractPressed;
+        bool secondary = PlayerControls.SecondaryPressed;
+
         // Взятие квеста
-        if (isInRadius && questState == NPCQuestState.Idle && Input.GetKeyDown(KeyCode.E))
+        if (isInRadius && questState == NPCQuestState.Idle && interact)
         {
             questState = NPCQuestState.Offer;
             TriggerNPCDialogue("Соберёшь мне ягоды?");
         }
         // Принятие квеста
-        else if (isInRadius && questState == NPCQuestState.Offer && Input.GetKeyDown(KeyCode.E))
+        else if (isInRadius && questState == NPCQuestState.Offer && interact)
         {
             questState = NPCQuestState.QuestActive;
             isQuestAccepted = true;
             TriggerNPCDialogue("Отлично! Принеси мне 3 ягоды.");
         }
         // Сдача квеста
-        else if (isInRadius && questState == NPCQuestState.QuestDone && Input.GetKeyDown(KeyCode.F))
+        else if (isInRadius && questState == NPCQuestState.QuestDone && secondary)
         {
             TurnInQuest();
         }
         // Отмена (только если квест активен)
-        else if (questState == NPCQuestState.QuestActive && Input.GetKeyDown(KeyCode.F))
+        else if (questState == NPCQuestState.QuestActive && secondary)
         {
             questState = NPCQuestState.Idle;
             isQuestAccepted = false;

@@ -1,3 +1,4 @@
+using LabGame.Controls;
 using LabGame.Items;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -143,9 +144,33 @@ namespace LabGame.UI
             BuildStats();
 
             UIFactory.CreateText(panel, "Footer",
-                "Перетаскивайте предметы мышью • Двойной клик надевает и снимает экипировку • " +
-                "Выброшенный предмет можно снова подобрать клавишей E",
-                16, UIFactory.TextDim, TextAnchor.MiddleLeft, 36f, 640f, 1088f, 30f);
+                "Перетаскивайте предметы мышью • Двойной клик надевает и снимает экипировку",
+                16, UIFactory.TextDim, TextAnchor.MiddleLeft, 36f, 640f, 720f, 30f);
+
+            BuildPanelButton("CloseButton", "Закрыть", 780f, 160f, Close);
+            BuildPanelButton("DropButton", "Выбросить", 960f, 164f, DropSelected);
+        }
+
+        /// <summary>
+        /// Кнопки внизу панели: нужны на сенсорном экране, где нет клавиш Tab и G.
+        /// </summary>
+        private void BuildPanelButton(string name, string label, float x, float width,
+            UnityEngine.Events.UnityAction action)
+        {
+            var rect = UIFactory.CreateRect(panel, name, x, 634f, width, 34f);
+
+            var image = rect.gameObject.AddComponent<Image>();
+            image.sprite = UIFactory.RoundedSprite;
+            image.color = new Color(0.78f, 0.78f, 0.78f, 1f);
+            image.raycastTarget = true;
+
+            UIFactory.CreateText(rect, "Label", label, 16, UIFactory.TextMain,
+                TextAnchor.MiddleCenter, 0f, 0f, width, 34f);
+
+            var button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(action);
         }
 
         private void BuildGrid()
@@ -268,13 +293,13 @@ namespace LabGame.UI
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Tab)) Toggle();
+            if (PlayerControls.ToggleInventoryPressed) Toggle();
 
             if (!open) return;
 
-            if (Input.GetKeyDown(KeyCode.Escape)) Close();
+            if (PlayerControls.ClosePressed) Close();
 
-            if (Input.GetKeyDown(KeyCode.G) || Input.GetKeyDown(KeyCode.Delete)) DropSelected();
+            if (PlayerControls.DropPressed) DropSelected();
 
             UpdateTooltipPosition();
         }

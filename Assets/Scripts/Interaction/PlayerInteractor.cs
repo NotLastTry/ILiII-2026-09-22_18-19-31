@@ -1,16 +1,16 @@
+using LabGame.Controls;
 using UnityEngine;
 
 namespace LabGame
 {
     /// <summary>
-    /// Ищет ближайший интерактивный объект и реагирует на клавишу E.
-    /// Подсказка выводится в HUD.
+    /// Ищет ближайший интерактивный объект и реагирует на действие (E или
+    /// экранная кнопка «Действие»). Подсказка выводится в HUD.
     /// </summary>
     public class PlayerInteractor : MonoBehaviour
     {
         [Header("Взаимодействие")]
         public float radius = 3f;
-        public KeyCode interactKey = KeyCode.E;
 
         private PlayerInventory inventory;
         private IInteractable current;
@@ -32,7 +32,7 @@ namespace LabGame
 
             current = InteractableRegistry.FindClosest(transform.position, radius, inventory);
 
-            if (current != null && Input.GetKeyDown(interactKey))
+            if (current != null && PlayerControls.InteractPressed)
             {
                 var target = current;
                 target.Interact(inventory);
