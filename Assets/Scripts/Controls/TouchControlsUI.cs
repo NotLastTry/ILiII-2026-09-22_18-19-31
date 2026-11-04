@@ -87,6 +87,21 @@ namespace LabGame.Controls
 
             if (layer != null) layer.gameObject.SetActive(value);
             if (!value) ResetInput();
+
+            if (Application.isMobilePlatform) return;
+
+            if (value)
+            {
+                // Сенсорный режим включается на ПК вручную (F1): нужен свободный
+                // курсор, иначе мышь «заперта» в центре и джойстик не нажать.
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+            else if (!GameplayInput.Locked)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
         }
 
         public void ResetInput()

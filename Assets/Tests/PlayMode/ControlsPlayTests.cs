@@ -3,6 +3,7 @@ using LabGame;
 using LabGame.Controls;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
@@ -135,6 +136,45 @@ namespace LabGame.PlayModeTests
 
             Assert.IsFalse(touch.IsVisible, "при открытом инвентаре сенсорное управление скрывается");
             Assert.IsTrue(GameplayInput.Locked);
+        }
+
+        [UnityTest]
+        public IEnumerator Joystick_FollowsPointer()
+        {
+            LabServices.AutoCreateInterface = true;
+
+            CreatePlayer();
+            yield return null;
+
+            var router = playerObject.GetComponent<InputRouter>();
+            router.ForcedDevice = InputDeviceKind.Touch;
+
+            yield return null;
+            yield return null;
+
+            var joystick = TouchControlsUI.Instance.Joystick;
+            Assert.IsNotNull(joystick);
+
+            var rect = (RectTransform)joystick.transform;
+            Vector2 center = RectTransformUtility.WorldToScreenPoint(null, rect.position);
+
+            var data = new PointerEventData(EventSystem.current)
+            {
+                pointerId = -1,
+                position = center
+            };
+
+            ExecuteEvents.Execute(joystick.gameObject, data, ExecuteEvents.pointerDownHandler);
+
+            // Уводим указатель вправо и «перетаскиваем».
+            data.position = center + new Vector2(70f, 0f);
+            ExecuteEvents.Execute(joystick.gameObject, data, ExecuteEvents.dragHandler);
+
+            Assert.Greater(joystick.Value.x, 0.1f, "при перетаскивании джойстик должен отклоняться");
+            Assert.Greater(joystick.knob.anchoredPosition.x, 1f, "шайба должна следовать за указателем");
+
+            joystick.ResetValue();
+            Assert.AreEqual(Vector2.zero, joystick.Value);
         }
 
         [UnityTest]
