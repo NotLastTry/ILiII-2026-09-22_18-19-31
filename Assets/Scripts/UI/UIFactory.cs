@@ -5,8 +5,14 @@ using UnityEngine.UI;
 namespace LabGame.UI
 {
     /// <summary>
-    /// Хелперы для сборки uGUI из кода.
-    /// Специально без оформления: обычные прямоугольники, чёрный текст
+    /// Хелперы для сборки uGUI.
+    ///
+    /// Все методы «создать-или-найти»: если объект с таким именем уже есть
+    /// у родителя, он переиспользуется, а его настройки не перезаписываются.
+    /// Поэтому один и тот же код строит интерфейс и в редакторе (объекты
+    /// сохраняются в сцене), и в рантайме (объекты просто находятся).
+    ///
+    /// Оформление намеренно без дизайна: обычные прямоугольники, чёрный текст
     /// на светлом фоне, без скруглений, рамок и цветовых акцентов.
     /// </summary>
     public static class UIFactory
@@ -69,9 +75,27 @@ namespace LabGame.UI
             }
         }
 
-        /// <summary>Пустой RectTransform с привязкой к левому верхнему углу родителя.</summary>
+        /// <summary>RectTransform с привязкой к левому верхнему углу родителя.</summary>
         public static RectTransform CreateRect(Transform parent, string name, float x, float y, float width, float height)
+            => CreateRect(parent, name, x, y, width, height, out _);
+
+        /// <summary>
+        /// Возвращает существующий дочерний объект с таким именем или создаёт новый.
+        /// <paramref name="created"/> = true только если объект действительно создан.
+        /// </summary>
+        public static RectTransform CreateRect(Transform parent, string name, float x, float y, float width,
+            float height, out bool created)
         {
+            var existing = parent != null ? parent.Find(name) as RectTransform : null;
+
+            if (existing != null)
+            {
+                created = false;
+                return existing;
+            }
+
+            created = true;
+
             var go = new GameObject(name, typeof(RectTransform));
             var rect = (RectTransform)go.transform;
             rect.SetParent(parent, false);
@@ -86,42 +110,89 @@ namespace LabGame.UI
         /// <summary>Заливка (обычный прямоугольник).</summary>
         public static Image CreateImage(Transform parent, string name, float x, float y, float width, float height,
             Color color, bool raycastTarget = false)
+            => CreateImage(parent, name, x, y, width, height, color, raycastTarget, out _);
+
+        public static Image CreateImage(Transform parent, string name, float x, float y, float width, float height,
+            Color color, bool raycastTarget, out bool created)
         {
-            var rect = CreateRect(parent, name, x, y, width, height);
-            var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = RoundedSprite;
-            image.type = Image.Type.Simple;
-            image.color = color;
-            image.raycastTarget = raycastTarget;
+            var rect = CreateRect(parent, name, x, y, width, height, out created);
+
+            var image = rect.GetComponent<Image>();
+
+            if (image == null)
+            {
+                image = rect.gameObject.AddComponent<Image>();
+                created = true;
+            }
+
+            if (created)
+            {
+                image.sprite = RoundedSprite;
+                image.type = Image.Type.Simple;
+                image.color = color;
+                image.raycastTarget = raycastTarget;
+            }
+
             return image;
         }
 
         /// <summary>
-        /// Панель: заливка и вложенная копия того же цвета.
-        /// Рамки нет — вложенный слой оставлен только ради совместимости
-        /// с местом вызова (UI-код обращается к «Fill»).
+        /// Панель: заливка и вложенная копия того же цвета (рамки нет).
+        /// Возвращает внутренний «Fill».
         /// </summary>
         public static Image CreatePanel(Transform parent, string name, float x, float y, float width, float height,
             Color fill, Color border, float borderWidth = 2f, bool raycastTarget = true)
-        {
-            var outer = CreateRect(parent, name, x, y, width, height);
-            var outerImage = outer.gameObject.AddComponent<Image>();
-            outerImage.sprite = RoundedSprite;
-            outerImage.type = Image.Type.Simple;
-            outerImage.color = fill;
-            outerImage.raycastTarget = raycastTarget;
+            => CreatePanel(parent, name, x, y, width, height, fill, border, borderWidth, raycastTarget, out _);
 
-            var inner = CreateImage(outer, "Fill", borderWidth, borderWidth,
+        public static Image CreatePanel(Transform parent, string name, float x, float y, float width, float height,
+            Color fill, Color border, float borderWidth, bool raycastTarget, out bool created)
+        {
+            var outer = CreateRect(parent, name, x, y, width, height, out created);
+
+            var outerImage = outer.GetComponent<Image>();
+
+            if (outerImage == null)
+            {
+                outerImage = outer.gameObject.AddComponent<Image>();
+                created = true;
+            }
+
+            if (created)
+            {
+                outerImage.sprite = RoundedSprite;
+                outerImage.type = Image.Type.Simple;
+                outerImage.color = fill;
+                outerImage.raycastTarget = raycastTarget;
+            }
+
+            return CreateImage(outer, "Fill", borderWidth, borderWidth,
                 width - borderWidth * 2f, height - borderWidth * 2f, fill);
-            return inner;
         }
 
         public static Text CreateText(Transform parent, string name, string content, int fontSize, Color color,
             TextAnchor anchor, float x, float y, float width, float height, FontStyle style = FontStyle.Normal)
+            => CreateText(parent, name, content, fontSize, color, anchor, x, y, width, height, style, out _);
+
+        public static Text CreateText(Transform parent, string name, string content, int fontSize, Color color,
+            TextAnchor anchor, float x, float y, float width, float height, FontStyle style, out bool created)
         {
-            var rect = CreateRect(parent, name, x, y, width, height);
-            var text = rect.gameObject.AddComponent<Text>();
-            text.font = Font;
+            var rect = CreateRect(parent, name, x, y, width, height, out created);
+
+            var text = rect.GetComponent<Text>();
+
+            if (text == null)
+            {
+                text = rect.gameObject.AddComponent<Text>();
+                created = true;
+            }
+
+            if (!created || text.font == null)
+            {
+                text.font = Font;
+            }
+
+            if (!created) return text;
+
             text.text = content;
             text.fontSize = fontSize;
             text.color = color;
@@ -131,6 +202,7 @@ namespace LabGame.UI
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
             text.supportRichText = true;
+
             return text;
         }
 
@@ -146,7 +218,7 @@ namespace LabGame.UI
         public static void BuildIcon(Transform parent, ItemDefinition item, float x, float y, float size,
             out Image iconImage, out Text letter)
         {
-            var background = CreateImage(parent, "IconBg", x, y, size, size, new Color(0.72f, 0.72f, 0.72f, 1f));
+            var background = CreateImage(parent, "IconBg", x, y, size, size, new Color(0.88f, 0.88f, 0.88f, 1f));
 
             iconImage = CreateImage(background.transform, "Icon", 3f, 3f, size - 6f, size - 6f,
                 new Color(0.95f, 0.95f, 0.95f, 1f));

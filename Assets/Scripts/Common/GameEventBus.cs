@@ -30,12 +30,16 @@ namespace LabGame
         /// <summary>Игрок посмотрел на NPC (используется для реакции «замер»/«побег»).</summary>
         public static event Action<GameObject> PlayerLookedAtNpc;
 
+        /// <summary>Громкое событие в точке — толпа пугается (ПЗ №6).</summary>
+        public static event Action<Vector3> Disturbance;
+
         public static void RaiseItemPickedUp(ItemDefinition item, int amount) => ItemPickedUp?.Invoke(item, amount);
         public static void RaiseItemEquipped(ItemDefinition item, EquipSlot slot) => ItemEquipped?.Invoke(item, slot);
         public static void RaiseItemDropped(ItemDefinition item, int amount) => ItemDropped?.Invoke(item, amount);
         public static void RaisePlayerHealthChanged(float current, float max) => PlayerHealthChanged?.Invoke(current, max);
         public static void RaiseQuestStateChanged(int state) => QuestStateChanged?.Invoke(state);
         public static void RaisePlayerLookedAtNpc(GameObject npc) => PlayerLookedAtNpc?.Invoke(npc);
+        public static void RaiseDisturbance(Vector3 position) => Disturbance?.Invoke(position);
 
         /// <summary>Сбрасывает подписки. Нужно в тестах, чтобы не протекало состояние.</summary>
         public static void ClearAll()
@@ -46,6 +50,7 @@ namespace LabGame
             PlayerHealthChanged = null;
             QuestStateChanged = null;
             PlayerLookedAtNpc = null;
+            Disturbance = null;
         }
     }
 }

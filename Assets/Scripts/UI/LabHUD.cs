@@ -1,5 +1,7 @@
+using LabGame.AI;
 using LabGame.Controls;
 using LabGame.UI;
+using LabGame.World;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -21,6 +23,9 @@ namespace LabGame
         public RectTransform Root { get; private set; }
         public InventoryUI Inventory { get; private set; }
 
+        /// <summary>Система времени суток и погоды (ПЗ №4).</summary>
+        public LabEnvironment Environment { get; private set; }
+
         private Text toastText;
         private Text promptText;
         private Text chaosText;
@@ -30,32 +35,74 @@ namespace LabGame
         private Text deviceDetailsText;
         private float deviceRefreshTimer;
 
+        private Text worldText;
+        private float worldRefreshTimer;
+
+        private Text enemyText;
+        private GameObject enemyPanelObject;
+        private float enemyRefreshTimer;
+
+        private Text crowdText;
+        private float crowdRefreshTimer;
+
         private float toastTimer;
+
+        private bool bound;
 
         public static LabHUD Ensure(PlayerInventory player)
         {
-            if (Instance != null) return Instance;
+            var hud = Instance;
 
-            var go = new GameObject("LabHUD");
-            Instance = go.AddComponent<LabHUD>();
-            Instance.Build(player);
-            return Instance;
+            // HUD может быть заранее размещён в сцене — тогда используем его.
+            if (hud == null) hud = Object.FindAnyObjectByType<LabHUD>();
+
+            if (hud == null)
+            {
+                var go = new GameObject("LabHUD", typeof(RectTransform));
+                hud = go.AddComponent<LabHUD>();
+            }
+
+            hud.Bind(player);
+            return hud;
+        }
+
+        /// <summary>Подключить игрока и (при необходимости) достроить интерфейс.</summary>
+        public void Bind(PlayerInventory player)
+        {
+            if (bound) return;
+
+            bound = true;
+            Instance = this;
+
+            Build(player);
         }
 
         private void Build(PlayerInventory player)
         {
             EnsureEventSystem();
 
-            Canvas = gameObject.AddComponent<Canvas>();
-            Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            Canvas.sortingOrder = 100;
+            Environment = LabEnvironment.Ensure();
 
-            var scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            Canvas = GetComponent<Canvas>();
 
-            gameObject.AddComponent<GraphicRaycaster>();
+            if (Canvas == null)
+            {
+                Canvas = gameObject.AddComponent<Canvas>();
+                Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                Canvas.sortingOrder = 100;
+            }
+
+            var scaler = GetComponent<CanvasScaler>();
+
+            if (scaler == null)
+            {
+                scaler = gameObject.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.matchWidthOrHeight = 0.5f;
+            }
+
+            if (GetComponent<GraphicRaycaster>() == null) gameObject.AddComponent<GraphicRaycaster>();
 
             Root = (RectTransform)transform;
             Root.anchorMin = Vector2.zero;
@@ -79,31 +126,41 @@ namespace LabGame
         {
             // Подсказка взаимодействия — по центру снизу.
             var promptPanel = UIFactory.CreatePanel(Root, "PromptPanel", 0f, 0f, 620f, 46f,
-                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false, out bool promptCreated);
+
             var promptRect = (RectTransform)promptPanel.transform.parent;
-            promptRect.anchorMin = new Vector2(0.5f, 0f);
-            promptRect.anchorMax = new Vector2(0.5f, 0f);
-            promptRect.pivot = new Vector2(0.5f, 0f);
-            promptRect.anchoredPosition = new Vector2(0f, 150f);
-            promptRect.sizeDelta = new Vector2(620f, 46f);
+
+            if (promptCreated)
+            {
+                promptRect.anchorMin = new Vector2(0.5f, 0f);
+                promptRect.anchorMax = new Vector2(0.5f, 0f);
+                promptRect.pivot = new Vector2(0.5f, 0f);
+                promptRect.anchoredPosition = new Vector2(0f, 150f);
+                promptRect.sizeDelta = new Vector2(620f, 46f);
+            }
 
             promptText = UIFactory.CreateText(promptPanel.transform, "Prompt", string.Empty, 22,
                 UIFactory.TextMain, TextAnchor.MiddleCenter, 0f, 0f, 610f, 40f);
 
             // Всплывающие сообщения — ниже подсказки.
             var toastPanel = UIFactory.CreatePanel(Root, "ToastPanel", 0f, 0f, 700f, 44f,
-                UIFactory.PanelFill, UIFactory.PanelFill, 1.5f, false);
+                UIFactory.PanelFill, UIFactory.PanelFill, 1.5f, false, out bool toastCreated);
+
             var toastRect = (RectTransform)toastPanel.transform.parent;
-            toastRect.anchorMin = new Vector2(0.5f, 0f);
-            toastRect.anchorMax = new Vector2(0.5f, 0f);
-            toastRect.pivot = new Vector2(0.5f, 0f);
-            toastRect.anchoredPosition = new Vector2(0f, 96f);
-            toastRect.sizeDelta = new Vector2(700f, 44f);
+
+            if (toastCreated)
+            {
+                toastRect.anchorMin = new Vector2(0.5f, 0f);
+                toastRect.anchorMax = new Vector2(0.5f, 0f);
+                toastRect.pivot = new Vector2(0.5f, 0f);
+                toastRect.anchoredPosition = new Vector2(0f, 96f);
+                toastRect.sizeDelta = new Vector2(700f, 44f);
+            }
 
             toastText = UIFactory.CreateText(toastPanel.transform, "Toast", string.Empty, 20,
                 UIFactory.TextMain, TextAnchor.MiddleCenter, 0f, 0f, 690f, 38f);
 
-            toastPanel.transform.parent.gameObject.SetActive(false);
+            if (Application.isPlaying) toastPanel.transform.parent.gameObject.SetActive(false);
 
             // Статус хаотичного NPC — в левом верхнем углу.
             var chaosPanel = UIFactory.CreatePanel(Root, "ChaosPanel", 24f, 24f, 460f, 74f,
@@ -119,23 +176,52 @@ namespace LabGame
             chaosText = UIFactory.CreateText(chaosPanel.transform, "Chaos", string.Empty, 17,
                 UIFactory.TextDim, TextAnchor.UpperLeft, 76f, 8f, 372f, 58f);
 
-            chaosPanel.transform.parent.gameObject.SetActive(false);
+            if (Application.isPlaying) chaosPanel.transform.parent.gameObject.SetActive(false);
 
             // Индикатор устройства ввода — в правом верхнем углу (ПЗ №2).
             var devicePanel = UIFactory.CreatePanel(Root, "DevicePanel", 0f, 0f, 560f, 96f,
-                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false, out bool deviceCreated);
 
             var deviceRect = (RectTransform)devicePanel.transform.parent;
-            deviceRect.anchorMin = deviceRect.anchorMax = new Vector2(1f, 1f);
-            deviceRect.pivot = new Vector2(1f, 1f);
-            deviceRect.anchoredPosition = new Vector2(-24f, -24f);
-            deviceRect.sizeDelta = new Vector2(560f, 96f);
+
+            if (deviceCreated)
+            {
+                deviceRect.anchorMin = deviceRect.anchorMax = new Vector2(1f, 1f);
+                deviceRect.pivot = new Vector2(1f, 1f);
+                deviceRect.anchoredPosition = new Vector2(-24f, -24f);
+                deviceRect.sizeDelta = new Vector2(560f, 96f);
+            }
 
             deviceText = UIFactory.CreateText(devicePanel.transform, "Device", string.Empty, 16,
                 UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 536f, 26f);
 
             deviceDetailsText = UIFactory.CreateText(devicePanel.transform, "Details", string.Empty, 13,
                 UIFactory.TextDim, TextAnchor.UpperLeft, 12f, 36f, 536f, 52f);
+
+            // Время суток и погода — слева, под статусом NPC (ПЗ №4).
+            var worldPanel = UIFactory.CreatePanel(Root, "WorldPanel", 24f, 110f, 460f, 96f,
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+
+            worldText = UIFactory.CreateText(worldPanel.transform, "World", string.Empty, 16,
+                UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 436f, 82f);
+
+            // Дерево поведения противника — слева, под временем и погодой (ПЗ №5).
+            var enemyPanel = UIFactory.CreatePanel(Root, "EnemyPanel", 24f, 214f, 460f, 380f,
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+
+            enemyPanelObject = enemyPanel.transform.parent.gameObject;
+
+            enemyText = UIFactory.CreateText(enemyPanel.transform, "Enemy", string.Empty, 11,
+                UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 436f, 364f);
+
+            if (Application.isPlaying) enemyPanelObject.SetActive(false);
+
+            // Состояние толпы (ПЗ №6).
+            var crowdPanel = UIFactory.CreatePanel(Root, "CrowdPanel", 24f, 602f, 460f, 78f,
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+
+            crowdText = UIFactory.CreateText(crowdPanel.transform, "Crowd", string.Empty, 14,
+                UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 436f, 62f);
 
             ChaosHud = this;
         }
@@ -171,6 +257,98 @@ namespace LabGame
             }
 
             UpdateDeviceLabel();
+            UpdateWorldLabel();
+            UpdateEnemyLabel();
+            UpdateCrowdLabel();
+        }
+
+        /// <summary>Показывает состояние толпы (ПЗ №6).</summary>
+        private void UpdateCrowdLabel()
+        {
+            crowdRefreshTimer -= Time.unscaledDeltaTime;
+            if (crowdRefreshTimer > 0f) return;
+
+            crowdRefreshTimer = 0.2f;
+
+            if (crowdText == null) return;
+
+            var crowd = CrowdManager.Instance;
+
+            if (crowd == null)
+            {
+                crowdText.text = "Толпа: не найдена";
+                return;
+            }
+
+            int calm = 0, curious = 0, panic = 0;
+
+            var agents = crowd.Agents;
+
+            for (int i = 0; i < agents.Count; i++)
+            {
+                if (agents[i] == null) continue;
+
+                switch (agents[i].Mode)
+                {
+                    case CrowdMode.Panic: panic++; break;
+                    case CrowdMode.Curious: curious++; break;
+                    default: calm++; break;
+                }
+            }
+
+            crowdText.text = $"Толпа: {agents.Count}   " +
+                             $"спокойно {calm} · любопытно {curious} · паника {panic}\n" +
+                             "H — напугать толпу";
+        }
+
+        /// <summary>Показывает состояние и дерево поведения противника (ПЗ №5).</summary>
+        private void UpdateEnemyLabel()
+        {
+            enemyRefreshTimer -= Time.unscaledDeltaTime;
+            if (enemyRefreshTimer > 0f) return;
+
+            enemyRefreshTimer = 0.15f;
+
+            var enemy = RovingNPC.Primary;
+
+            if (enemy == null)
+            {
+                if (enemyPanelObject != null && enemyPanelObject.activeSelf)
+                    enemyPanelObject.SetActive(false);
+
+                return;
+            }
+
+            if (enemyPanelObject != null && !enemyPanelObject.activeSelf)
+                enemyPanelObject.SetActive(true);
+
+            if (enemyText == null) return;
+
+            enemyText.text = $"Состояние: {EnemyStates.Russian(enemy.State)}\n" +
+                             "Дерево поведения:\n" +
+                             enemy.BuildTreeDebug();
+        }
+
+        /// <summary>Показывает игровое время, часть суток и текущую погоду.</summary>
+        private void UpdateWorldLabel()
+        {
+            worldRefreshTimer -= Time.unscaledDeltaTime;
+            if (worldRefreshTimer > 0f) return;
+
+            worldRefreshTimer = 0.2f;
+
+            if (Environment == null || Environment.DayNight == null || worldText == null) return;
+
+            var time = Environment.DayNight;
+            var weather = Environment.Weather;
+
+            worldText.text =
+                $"Время: {TimeOfDayMath.FormatTime(time.Hour)}  ({TimeOfDayMath.PhaseName(time.Phase)}), " +
+                $"день {time.DayNumber}\n" +
+                $"Погода: {WeatherPresets.Russian(weather.TargetType)}\n" +
+                (time.Paused
+                    ? "T — +1 час   Y — погода   U — продолжить"
+                    : "T — +1 час   Y — погода   U — пауза");
         }
 
         /// <summary>Показывает, какое устройство сейчас активно и что вообще подключено.</summary>

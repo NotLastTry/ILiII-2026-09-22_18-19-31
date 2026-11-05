@@ -31,11 +31,16 @@ namespace LabGame.UI
         {
             slotSize = size;
 
-            frame = gameObject.AddComponent<Image>();
-            frame.sprite = UIFactory.RoundedSprite;
-            frame.type = Image.Type.Simple;
-            frame.color = IdleFill;
-            frame.raycastTarget = true;
+            frame = GetComponent<Image>();
+
+            if (frame == null)
+            {
+                frame = gameObject.AddComponent<Image>();
+                frame.sprite = UIFactory.RoundedSprite;
+                frame.type = Image.Type.Simple;
+                frame.color = IdleFill;
+                frame.raycastTarget = true;
+            }
 
             float inner = size - IconPadding * 2f;
 

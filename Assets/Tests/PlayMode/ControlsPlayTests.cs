@@ -178,6 +178,32 @@ namespace LabGame.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator RebuildingInterface_DoesNotDuplicateElements()
+        {
+            LabServices.AutoCreateInterface = true;
+
+            CreatePlayer();
+            yield return null;
+
+            var hud = LabHUD.Instance;
+            var inventory = hud.Inventory;
+            var touch = TouchControlsUI.Instance;
+
+            // Повторный вызов сборки должен вернуть те же объекты.
+            var inventoryAgain = LabGame.UI.InventoryUI.Create(hud, playerObject.GetComponent<PlayerInventory>());
+            var touchAgain = TouchControlsUI.Create(hud.Root);
+
+            Assert.AreSame(inventory, inventoryAgain, "экран инвентаря не должен дублироваться");
+            Assert.AreSame(touch, touchAgain, "сенсорный слой не должен дублироваться");
+
+            int slots = Object.FindObjectsByType<LabGame.UI.InventorySlotUI>(FindObjectsInactive.Include).Length;
+            int equip = Object.FindObjectsByType<LabGame.UI.EquipmentSlotUI>(FindObjectsInactive.Include).Length;
+
+            Assert.AreEqual(24, slots, "ячеек инвентаря должно остаться 24");
+            Assert.AreEqual(7, equip, "слотов экипировки должно остаться 7");
+        }
+
+        [UnityTest]
         public IEnumerator InputReader_IsNeutral_WhenInputLocked()
         {
             CreatePlayer();

@@ -8,8 +8,8 @@ namespace LabGame.Controls
     /// Сенсорный слой управления: джойстик слева, зона обзора справа,
     /// кнопки действий. Показывается только когда активна сенсорная схема.
     ///
-    /// Слой создаётся в рантайме и ставится первым в иерархии Canvas,
-    /// чтобы не перекрывать окно инвентаря.
+    /// Слой строится «создать-или-найти», поэтому его можно заранее
+    /// разместить в сцене и настраивать в инспекторе.
     /// </summary>
     public class TouchControlsUI : MonoBehaviour
     {
@@ -34,6 +34,14 @@ namespace LabGame.Controls
 
         public static TouchControlsUI Create(RectTransform parent)
         {
+            var existing = parent.GetComponentInChildren<TouchControlsUI>(true);
+
+            if (existing != null)
+            {
+                existing.Build();
+                return existing;
+            }
+
             var go = new GameObject("TouchControls", typeof(RectTransform));
 
             var rect = (RectTransform)go.transform;
@@ -60,7 +68,16 @@ namespace LabGame.Controls
             BuildJoystick();
             BuildButtons();
 
-            SetVisible(false);
+            if (Application.isPlaying)
+            {
+                SetVisible(false);
+            }
+            else
+            {
+                // В редакторе слой виден, чтобы его можно было настроить.
+                layer.gameObject.SetActive(true);
+                visible = true;
+            }
         }
 
         private void OnDestroy()
@@ -122,44 +139,74 @@ namespace LabGame.Controls
 
         private void BuildLookArea()
         {
-            var rect = new GameObject("LookArea", typeof(RectTransform)).GetComponent<RectTransform>();
-            rect.SetParent(layer, false);
+            var rect = GetOrCreate(layer, "LookArea", out bool created);
 
-            // Правая половина экрана.
-            rect.anchorMin = new Vector2(0.5f, 0f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
+            if (created)
+            {
+                // Правая половина экрана.
+                rect.anchorMin = new Vector2(0.5f, 0f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+            }
 
-            var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = UIFactory.RoundedSprite;
-            image.color = new Color(0f, 0f, 0f, 0f);
-            image.raycastTarget = true;
+            var image = rect.GetComponent<Image>();
 
-            LookArea = rect.gameObject.AddComponent<TouchLookArea>();
+            if (image == null)
+            {
+                image = rect.gameObject.AddComponent<Image>();
+                image.sprite = UIFactory.RoundedSprite;
+                image.color = new Color(0f, 0f, 0f, 0f);
+                image.raycastTarget = true;
+            }
+
+            LookArea = rect.GetComponent<TouchLookArea>();
+            if (LookArea == null) LookArea = rect.gameObject.AddComponent<TouchLookArea>();
         }
 
         private void BuildJoystick()
         {
             const float size = 300f;
 
-            var background = CreateAnchored(layer, "Joystick", new Vector2(0f, 0f), new Vector2(0.5f, 0.5f),
-                new Vector2(size, size), new Vector2(240f, 240f));
+            var background = GetOrCreate(layer, "Joystick", out bool created);
 
-            var backgroundImage = background.gameObject.AddComponent<Image>();
-            backgroundImage.sprite = UIFactory.RoundedSprite;
-            backgroundImage.color = new Color(0.78f, 0.78f, 0.78f, 0.45f);
-            backgroundImage.raycastTarget = true;
+            if (created)
+            {
+                Anchor(background, new Vector2(0f, 0f), new Vector2(0.5f, 0.5f),
+                    new Vector2(size, size), new Vector2(240f, 240f));
+            }
 
-            var knob = CreateAnchored(background, "Knob", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(120f, 120f), Vector2.zero);
+            var backgroundImage = background.GetComponent<Image>();
 
-            var knobImage = knob.gameObject.AddComponent<Image>();
-            knobImage.sprite = UIFactory.RoundedSprite;
-            knobImage.color = new Color(0.55f, 0.55f, 0.55f, 0.8f);
-            knobImage.raycastTarget = false;
+            if (backgroundImage == null)
+            {
+                backgroundImage = background.gameObject.AddComponent<Image>();
+                backgroundImage.sprite = UIFactory.RoundedSprite;
+                backgroundImage.color = new Color(0.78f, 0.78f, 0.78f, 0.45f);
+                backgroundImage.raycastTarget = true;
+            }
 
-            var joystick = background.gameObject.AddComponent<VirtualJoystick>();
+            var knob = GetOrCreate(background, "Knob", out bool knobCreated);
+
+            if (knobCreated)
+            {
+                Anchor(knob, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(120f, 120f), Vector2.zero);
+            }
+
+            var knobImage = knob.GetComponent<Image>();
+
+            if (knobImage == null)
+            {
+                knobImage = knob.gameObject.AddComponent<Image>();
+                knobImage.sprite = UIFactory.RoundedSprite;
+                knobImage.color = new Color(0.55f, 0.55f, 0.55f, 0.8f);
+                knobImage.raycastTarget = false;
+            }
+
+            var joystick = background.GetComponent<VirtualJoystick>();
+            if (joystick == null) joystick = background.gameObject.AddComponent<VirtualJoystick>();
+
             joystick.radius = size * 0.5f;
             joystick.deadZone = 0.15f;
             joystick.knob = knob;
@@ -178,48 +225,75 @@ namespace LabGame.Controls
 
         private TouchButton CreateButton(string name, string label, Vector2 position, float size)
         {
-            var rect = CreateAnchored(layer, name, new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
-                new Vector2(size, size), position);
+            var rect = GetOrCreate(layer, name, out bool created);
 
-            var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = UIFactory.RoundedSprite;
-            image.color = new Color(0.78f, 0.78f, 0.78f, 0.9f);
-            image.raycastTarget = true;
+            if (created)
+            {
+                Anchor(rect, new Vector2(1f, 0f), new Vector2(0.5f, 0.5f),
+                    new Vector2(size, size), position);
+            }
 
-            var text = UIFactory.CreateText(rect, "Label", label, size < 140f ? 16 : 18,
+            var image = rect.GetComponent<Image>();
+
+            if (image == null)
+            {
+                image = rect.gameObject.AddComponent<Image>();
+                image.sprite = UIFactory.RoundedSprite;
+                image.color = new Color(0.78f, 0.78f, 0.78f, 0.9f);
+                image.raycastTarget = true;
+            }
+
+            UIFactory.CreateText(rect, "Label", label, size < 140f ? 16 : 18,
                 UIFactory.TextMain, TextAnchor.MiddleCenter, 0f, 0f, size, size);
 
-            text.raycastTarget = false;
+            var button = rect.GetComponent<TouchButton>();
+            if (button == null) button = rect.gameObject.AddComponent<TouchButton>();
 
-            var button = rect.gameObject.AddComponent<TouchButton>();
             button.background = image;
 
             return button;
         }
 
-        private static RectTransform CreateFullScreen(Transform parent, string name)
+        // ─────────────────────────────────────────────────────────────
+        //  Вспомогательное
+        // ─────────────────────────────────────────────────────────────
+
+        private static RectTransform GetOrCreate(Transform parent, string name, out bool created)
         {
+            var existing = parent.Find(name) as RectTransform;
+
+            if (existing != null)
+            {
+                created = false;
+                return existing;
+            }
+
+            created = true;
+
             var go = new GameObject(name, typeof(RectTransform));
             var rect = (RectTransform)go.transform;
             rect.SetParent(parent, false);
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
             return rect;
         }
 
-        private static RectTransform CreateAnchored(Transform parent, string name, Vector2 anchor, Vector2 pivot,
-            Vector2 size, Vector2 position)
+        private static void Anchor(RectTransform rect, Vector2 anchor, Vector2 pivot, Vector2 size, Vector2 position)
         {
-            var go = new GameObject(name, typeof(RectTransform));
-            var rect = (RectTransform)go.transform;
-            rect.SetParent(parent, false);
             rect.anchorMin = anchor;
             rect.anchorMax = anchor;
             rect.pivot = pivot;
             rect.sizeDelta = size;
             rect.anchoredPosition = position;
+        }
+
+        private static RectTransform CreateFullScreen(Transform parent, string name)
+        {
+            var rect = GetOrCreate(parent, name, out _);
+
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
             return rect;
         }
     }

@@ -1,4 +1,5 @@
 using LabGame.Items;
+using LabGame.World;
 using UnityEngine;
 
 namespace LabGame
@@ -35,6 +36,10 @@ namespace LabGame
             AutoCreateInterface = true;
             GameEventBus.ClearAll();
             InteractableRegistry.Clear();
+
+            // Окружение (ПЗ №4) живёт отдельным объектом — убираем его между тестами.
+            if (LabEnvironment.Instance != null)
+                Object.DestroyImmediate(LabEnvironment.Instance.gameObject);
         }
     }
 }

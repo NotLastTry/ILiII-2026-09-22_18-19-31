@@ -69,15 +69,27 @@ namespace LabGame.UI
 
         public static InventoryUI Create(LabHUD hud, PlayerInventory player)
         {
+            // В сцене экран инвентаря уже может быть создан заранее — тогда используем его.
+            var existing = hud.GetComponentInChildren<InventoryUI>(true);
+
+            if (existing != null)
+            {
+                existing.Build(player);
+                return existing;
+            }
+
             var go = new GameObject("InventoryUI", typeof(RectTransform));
             go.transform.SetParent(hud.transform, false);
 
             var ui = go.AddComponent<InventoryUI>();
+            ui.ApplyStretch();
             ui.Build(player);
             return ui;
         }
 
-        private void Awake()
+        private void Awake() => ApplyStretch();
+
+        private void ApplyStretch()
         {
             var rect = (RectTransform)transform;
             rect.anchorMin = Vector2.zero;
@@ -95,14 +107,16 @@ namespace LabGame.UI
             BuildTooltip();
             BuildDragGhost();
 
-            if (inventory != null)
+            if (inventory != null && inventory.Model != null)
             {
                 inventory.Model.Changed += RefreshAll;
                 if (inventory.Stats != null) inventory.Stats.Changed += OnStatsChanged;
             }
 
             RefreshAll();
-            SetOpen(false);
+
+            // В редакторе панель оставляем открытой, чтобы её было видно и можно было настроить.
+            if (Application.isPlaying) SetOpen(false);
         }
 
         private void OnDestroy()
@@ -124,10 +138,15 @@ namespace LabGame.UI
 
         private void BuildPanel()
         {
-            panelRoot = UIFactory.CreateRect(transform, "InventoryPanel", 0f, 0f, PanelWidth, PanelHeight);
-            panelRoot.anchorMin = panelRoot.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRoot.pivot = new Vector2(0.5f, 0.5f);
-            panelRoot.anchoredPosition = Vector2.zero;
+            panelRoot = UIFactory.CreateRect(transform, "InventoryPanel", 0f, 0f, PanelWidth, PanelHeight,
+                out bool rootCreated);
+
+            if (rootCreated)
+            {
+                panelRoot.anchorMin = panelRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                panelRoot.pivot = new Vector2(0.5f, 0.5f);
+                panelRoot.anchoredPosition = Vector2.zero;
+            }
 
             panel = UIFactory.CreatePanel(panelRoot, "Background", 0f, 0f, PanelWidth, PanelHeight,
                 UIFactory.PanelFill, UIFactory.PanelFill, 2f, true).transform.parent as RectTransform;
@@ -159,23 +178,37 @@ namespace LabGame.UI
         {
             var rect = UIFactory.CreateRect(panel, name, x, 634f, width, 34f);
 
-            var image = rect.gameObject.AddComponent<Image>();
-            image.sprite = UIFactory.RoundedSprite;
-            image.color = new Color(0.78f, 0.78f, 0.78f, 1f);
-            image.raycastTarget = true;
+            var image = rect.GetComponent<Image>();
+
+            if (image == null)
+            {
+                image = rect.gameObject.AddComponent<Image>();
+                image.sprite = UIFactory.RoundedSprite;
+                image.color = new Color(0.78f, 0.78f, 0.78f, 1f);
+                image.raycastTarget = true;
+            }
 
             UIFactory.CreateText(rect, "Label", label, 16, UIFactory.TextMain,
                 TextAnchor.MiddleCenter, 0f, 0f, width, 34f);
 
-            var button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            button.transition = Selectable.Transition.None;
+            var button = rect.GetComponent<Button>();
+
+            if (button == null)
+            {
+                button = rect.gameObject.AddComponent<Button>();
+                button.targetGraphic = image;
+                button.transition = Selectable.Transition.None;
+            }
+
+            button.onClick.RemoveAllListeners();
             button.onClick.AddListener(action);
         }
 
         private void BuildGrid()
         {
-            int count = inventory != null ? inventory.Model.Capacity : InventoryModel.DefaultCapacity;
+            int count = inventory != null && inventory.Model != null
+                ? inventory.Model.Capacity
+                : InventoryModel.DefaultCapacity;
             slotViews = new InventorySlotUI[count];
 
             for (int i = 0; i < count; i++)
@@ -187,7 +220,10 @@ namespace LabGame.UI
                 float y = GridY + row * (SlotSize + SlotGap);
 
                 var rect = UIFactory.CreateRect(panel, $"Slot_{i}", x, y, SlotSize, SlotSize);
-                var view = rect.gameObject.AddComponent<InventorySlotUI>();
+
+                var view = rect.GetComponent<InventorySlotUI>();
+                if (view == null) view = rect.gameObject.AddComponent<InventorySlotUI>();
+
                 view.Build(this, i, SlotSize);
                 slotViews[i] = view;
             }
@@ -220,7 +256,10 @@ namespace LabGame.UI
                 float y = 134f + row * (EquipSlotSize + 44f);
 
                 var rect = UIFactory.CreateRect(panel, $"Equip_{slots[i]}", x, y, EquipSlotSize, EquipSlotSize);
-                var view = rect.gameObject.AddComponent<EquipmentSlotUI>();
+
+                var view = rect.GetComponent<EquipmentSlotUI>();
+                if (view == null) view = rect.gameObject.AddComponent<EquipmentSlotUI>();
+
                 view.Build(this, slots[i], EquipSlotSize);
                 equipViews[i] = view;
 
@@ -263,9 +302,13 @@ namespace LabGame.UI
 
         private void BuildTooltip()
         {
-            tooltipRoot = UIFactory.CreateRect(transform, "Tooltip", 0f, 0f, 390f, 160f);
-            tooltipRoot.anchorMin = tooltipRoot.anchorMax = new Vector2(0.5f, 0.5f);
-            tooltipRoot.pivot = new Vector2(0f, 0f);
+            tooltipRoot = UIFactory.CreateRect(transform, "Tooltip", 0f, 0f, 390f, 160f, out bool tipCreated);
+
+            if (tipCreated)
+            {
+                tooltipRoot.anchorMin = tooltipRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                tooltipRoot.pivot = new Vector2(0f, 0f);
+            }
 
             var inner = UIFactory.CreatePanel(tooltipRoot, "Bg", 0f, 0f, 390f, 160f,
                 UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
@@ -351,21 +394,19 @@ namespace LabGame.UI
 
         public void RefreshAll()
         {
-            if (inventory == null || inventory.Model == null) return;
-
-            var model = inventory.Model;
+            var model = inventory != null ? inventory.Model : null;
 
             for (int i = 0; i < slotViews.Length; i++)
             {
                 if (slotViews[i] == null) continue;
-                slotViews[i].Refresh(model[i], selectedSlot == i);
+                slotViews[i].Refresh(model != null ? model[i] : null, selectedSlot == i);
             }
 
             for (int i = 0; i < equipViews.Length; i++)
             {
                 if (equipViews[i] == null) continue;
                 var slot = equipViews[i].Slot;
-                equipViews[i].Refresh(model.GetEquipped(slot), selectedEquip == slot);
+                equipViews[i].Refresh(model != null ? model.GetEquipped(slot) : null, selectedEquip == slot);
             }
 
             RefreshStats();
@@ -375,7 +416,7 @@ namespace LabGame.UI
         private void RefreshCapacity()
         {
             var capacityText = panel.Find("CapacityText")?.GetComponent<Text>();
-            if (capacityText == null || inventory == null) return;
+            if (capacityText == null || inventory == null || inventory.Model == null) return;
 
             capacityText.text = $"Занято слотов: {inventory.Model.UsedSlots} / {inventory.Model.Capacity}";
         }
