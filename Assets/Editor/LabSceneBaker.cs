@@ -2,6 +2,7 @@ using System.Linq;
 using LabGame;
 using LabGame.AI;
 using LabGame.Controls;
+using LabGame.Dialogue;
 using LabGame.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -82,6 +83,9 @@ namespace LabGame.EditorTools
             // Толпа NPC (ПЗ №6).
             var crowd = BakeCrowd(player.transform.position);
 
+            // Система диалогов (ПЗ №9).
+            BakeDialogue();
+
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
 
@@ -98,8 +102,7 @@ namespace LabGame.EditorTools
         /// Размещает вокруг площади несколько NPC с компонентом CrowdAgent.
         /// Повторный запуск пересоздаёт толпу, а не плодит дубликаты.
         /// </summary>
-        private static int BakeCrowd(Vector3 playerPosition)
-        {
+        private static int BakeCrowd(Vector3 playerPosition)        {
             var existing = GameObject.Find("Crowd");
             if (existing != null) Object.DestroyImmediate(existing);
 
@@ -136,6 +139,11 @@ namespace LabGame.EditorTools
                 member.name = $"CrowdMember_{i:00}";
 
                 // Убираем поведение одиночного противника — здесь работает толпа.
+                // Собеседника убираем первым: он требует наличия NPCController.
+                foreach (var behaviour in member.GetComponents<MonoBehaviour>().ToList())
+                    if (behaviour is DialogueAgent)
+                        Object.DestroyImmediate(behaviour);
+
                 foreach (var behaviour in member.GetComponents<MonoBehaviour>().ToList())
                 {
                     if (behaviour is NPCController || behaviour is RovingNPC || behaviour is ChaoticNPC)
@@ -158,6 +166,28 @@ namespace LabGame.EditorTools
 
             Debug.Log($"[LabSceneBaker] создана толпа из {count} NPC вокруг {center}");
             return count;
+        }
+
+        /// <summary>
+        /// Добавляет в сцену систему диалогов (ПЗ №9):
+        /// объект-раннер и компонент-собеседник на NPC.
+        /// </summary>
+        private static void BakeDialogue()
+        {
+            if (Object.FindAnyObjectByType<DialogueRunner>() == null)
+                new GameObject("DialogueRunner").AddComponent<DialogueRunner>();
+
+            var npc = GameObject.Find("NPC");
+
+            if (npc == null)
+            {
+                Debug.LogWarning("[LabSceneBaker] не найден объект NPC — диалог не привязан");
+                return;
+            }
+
+            var agent = EnsureComponent<DialogueAgent>(npc);
+
+            Debug.Log($"[LabSceneBaker] диалог «{agent.DialogueId}» привязан к {npc.name}");
         }
 
         private static T EnsureComponent<T>(GameObject target) where T : Component

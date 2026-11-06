@@ -1,6 +1,7 @@
 using System;
 using LabGame;
 using LabGame.Controls;
+using LabGame.Dialogue;
 using UnityEngine;
 
 public enum NPCQuestState
@@ -30,6 +31,7 @@ public class NPCController : MonoBehaviour
     private GameObject player;
     private PlayerInventory inventory;
     private Animator animator;
+    private DialogueAgent dialogueAgent;
 
     private NPCQuestState lastNotifiedQuestState = (NPCQuestState)(-1);
 
@@ -48,6 +50,7 @@ public class NPCController : MonoBehaviour
             Debug.LogWarning("У игрока нет компонента PlayerInventory!");
 
         animator = GetComponentInChildren<Animator>();
+        dialogueAgent = GetComponent<DialogueAgent>();
     }
 
     private void Update()
@@ -76,11 +79,14 @@ public class NPCController : MonoBehaviour
         isInRadius = distance <= radius;
     }
 
-    // --- 2. Обработка ввода ---
+    // --- 2. Обработка ввода (когда диалогов нет) ---
     private void HandleQuestInput()
     {
-        // Инвентарь открыт — квестовые клавиши не обрабатываем.
+        // Инвентарь или диалог открыт — квестовые клавиши не обрабатываем.
         if (GameplayInput.Locked) return;
+
+        // Если на NPC есть система диалогов, разговор ведёт она.
+        if (dialogueAgent != null) return;
 
         // Одно и то же действие доступно и с клавиатуры, и с экранной кнопки.
         bool interact = PlayerControls.InteractPressed;
@@ -89,14 +95,13 @@ public class NPCController : MonoBehaviour
         // Взятие квеста
         if (isInRadius && questState == NPCQuestState.Idle && interact)
         {
-            questState = NPCQuestState.Offer;
+            OfferQuest();
             TriggerNPCDialogue("Соберёшь мне ягоды?");
         }
         // Принятие квеста
         else if (isInRadius && questState == NPCQuestState.Offer && interact)
         {
-            questState = NPCQuestState.QuestActive;
-            isQuestAccepted = true;
+            AcceptQuest();
             TriggerNPCDialogue("Отлично! Принеси мне 3 ягоды.");
         }
         // Сдача квеста
@@ -107,10 +112,40 @@ public class NPCController : MonoBehaviour
         // Отмена (только если квест активен)
         else if (questState == NPCQuestState.QuestActive && secondary)
         {
-            questState = NPCQuestState.Idle;
-            isQuestAccepted = false;
+            ResetQuest();
             TriggerNPCDialogue("Ладно, вернёшься — поговорим.");
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Переходы квеста (их вызывает система диалогов)
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>Предложить квест.</summary>
+    public void OfferQuest()
+    {
+        if (questState != NPCQuestState.Idle) return;
+
+        questState = NPCQuestState.Offer;
+        isTalking = true;
+    }
+
+    /// <summary>Принять квест.</summary>
+    public void AcceptQuest()
+    {
+        if (questState != NPCQuestState.Offer) return;
+
+        questState = NPCQuestState.QuestActive;
+        isQuestAccepted = true;
+        isTalking = true;
+    }
+
+    /// <summary>Вернуть квест в начальное состояние.</summary>
+    public void ResetQuest()
+    {
+        questState = NPCQuestState.Idle;
+        isQuestAccepted = false;
+        isQuestDone = false;
     }
 
     // --- 3. Проверка прогресса квеста ---
@@ -127,15 +162,18 @@ public class NPCController : MonoBehaviour
     }
 
     // --- 4. Сдача квеста ---
-    private void TurnInQuest()
+    public void TurnInQuest()
     {
+        if (questState != NPCQuestState.QuestDone) return;
+
         isQuestDone = false;
         isQuestAccepted = false;
         questState = NPCQuestState.RewardGiven;
 
-        inventory.questItem.ResetCount();
+        if (inventory != null && inventory.questItem != null)
+            inventory.questItem.ResetCount();
+
         TriggerNPCDialogue("Спасибо! Вот твоя награда.");
-        // Здесь можно выдать предмет/опыт
     }
 
     // --- 5. Анимация ---

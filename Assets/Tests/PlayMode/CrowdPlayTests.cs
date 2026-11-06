@@ -126,7 +126,13 @@ namespace LabGame.PlayModeTests
             Assert.AreEqual(2, count);
             Assert.AreEqual(2, positions.Length);
             Assert.AreEqual(2, velocities.Length);
-            Assert.AreEqual(new Vector3(1f, 0f, 0f), positions[0]);
+
+            // Порядок участников не гарантирован — проверяем набор координат.
+            float minX = Mathf.Min(positions[0].x, positions[1].x);
+            float maxX = Mathf.Max(positions[0].x, positions[1].x);
+
+            Assert.AreEqual(1f, minX, 0.01f);
+            Assert.AreEqual(2f, maxX, 0.01f);
         }
     }
 }

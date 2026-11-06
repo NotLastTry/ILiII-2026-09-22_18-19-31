@@ -1,6 +1,8 @@
 using LabGame.AI;
 using LabGame.Controls;
+using LabGame.Dialogue;
 using LabGame.UI;
+using LabGame.Vehicles;
 using LabGame.World;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -44,6 +46,11 @@ namespace LabGame
 
         private Text crowdText;
         private float crowdRefreshTimer;
+
+        private Text vehicleText;
+        private float vehicleRefreshTimer;
+        private GroundVehicleController car;
+        private AircraftController aircraft;
 
         private float toastTimer;
 
@@ -223,6 +230,26 @@ namespace LabGame
             crowdText = UIFactory.CreateText(crowdPanel.transform, "Crowd", string.Empty, 14,
                 UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 436f, 62f);
 
+            // Техника — под индикатором устройства, справа (ПЗ №7 и №8).
+            var vehiclePanel = UIFactory.CreatePanel(Root, "VehiclePanel", 0f, 0f, 560f, 92f,
+                UIFactory.PanelFill, UIFactory.PanelFill, 2f, false);
+
+            var vehicleRect = (RectTransform)vehiclePanel.transform.parent;
+
+            if (vehicleRect != null)
+            {
+                vehicleRect.anchorMin = vehicleRect.anchorMax = new Vector2(1f, 1f);
+                vehicleRect.pivot = new Vector2(1f, 1f);
+                vehicleRect.anchoredPosition = new Vector2(-24f, -128f);
+                vehicleRect.sizeDelta = new Vector2(560f, 92f);
+            }
+
+            vehicleText = UIFactory.CreateText(vehiclePanel.transform, "Vehicles", string.Empty, 14,
+                UIFactory.TextMain, TextAnchor.UpperLeft, 12f, 8f, 536f, 76f);
+
+            // Окно диалогов (ПЗ №9).
+            DialogueUI.Ensure(this);
+
             ChaosHud = this;
         }
 
@@ -260,6 +287,46 @@ namespace LabGame
             UpdateWorldLabel();
             UpdateEnemyLabel();
             UpdateCrowdLabel();
+            UpdateVehicleLabel();
+        }
+
+        /// <summary>Показывает состояние машины и самолёта (ПЗ №7 и №8).</summary>
+        private void UpdateVehicleLabel()
+        {
+            vehicleRefreshTimer -= Time.unscaledDeltaTime;
+            if (vehicleRefreshTimer > 0f) return;
+
+            vehicleRefreshTimer = 0.2f;
+
+            if (vehicleText == null) return;
+
+            if (car == null) car = FindAnyObjectByType<GroundVehicleController>();
+            if (aircraft == null) aircraft = FindAnyObjectByType<AircraftController>();
+
+            string carLine = car != null
+                ? $"Машина: {CarModeName(car.Mode)} · {car.Speed:0.0} м/с · нос {car.modelYawOffset:0}°"
+                : "Машина: не найдена";
+
+            string planeLine = aircraft != null
+                ? $"Самолёт: {FlightModeName(aircraft.Mode)} · {aircraft.Speed:0.0} м/с · H {aircraft.Altitude:0} м · нос {aircraft.modelYawOffset:0}°"
+                : "Самолёт: не найден";
+
+            vehicleText.text = carLine + "\n" + planeLine;
+        }
+
+        private static string CarModeName(GroundVehicleController.VehicleMode mode)
+        {
+            switch (mode)
+            {
+                case GroundVehicleController.VehicleMode.Chase: return "погоня";
+                case GroundVehicleController.VehicleMode.Waiting: return "остановка";
+                default: return "патруль";
+            }
+        }
+
+        private static string FlightModeName(AircraftController.FlightMode mode)
+        {
+            return mode == AircraftController.FlightMode.Chase ? "погоня" : "патруль";
         }
 
         /// <summary>Показывает состояние толпы (ПЗ №6).</summary>

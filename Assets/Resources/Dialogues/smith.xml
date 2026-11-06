@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Диалог кузнеца (ПЗ №9).
+  Данные полностью лежат в XML: узлы, ответы, условия и действия.
+  Условия: quest:<состояние> — состояние квеста NPC, has:<itemId> — предмет у игрока.
+  Действия: quest:offer / quest:accept / quest:done / quest:reset.
+-->
+<dialogue id="smith" speaker="Кузнец">
+  <node id="start" text="Здравствуй, путник. Что тебя привело?">
+    <answer text="Кто ты?" to="about"/>
+    <answer text="Есть работа?" to="offer" condition="quest:idle"/>
+    <answer text="Как дела с заказом?" to="progress" condition="quest:active"/>
+    <answer text="Я принёс ягоды." to="turnin" condition="quest:done"/>
+    <answer text="Как настойка?" to="thanks" condition="quest:rewarded"/>
+    <answer text="Всего доброго." to="end"/>
+  </node>
+
+  <node id="about" text="Я кузнец. Живу здесь давно: чиню всё, что можно починить.">
+    <answer text="Понятно. А работа есть?" to="offer" condition="quest:idle"/>
+    <answer text="Понятно." to="start"/>
+  </node>
+
+  <node id="offer" text="Мне нужны ягоды для настойки. Принесёшь три штуки?" action="quest:offer">
+    <answer text="Согласен." to="accepted" action="quest:accept"/>
+    <answer text="Не сейчас." to="start"/>
+  </node>
+
+  <node id="accepted" text="Вот и славно. Ищи ягоды в лесу — их там видно-невидимо.">
+    <answer text="Хорошо." to="end"/>
+  </node>
+
+  <node id="progress" text="Ягод пока мало. Мне нужно ровно три.">
+    <answer text="Уже иду." to="end"/>
+  </node>
+
+  <node id="turnin" text="О, да ты справился! Спасибо тебе, держи награду." action="quest:done">
+    <answer text="Спасибо." to="end"/>
+  </node>
+
+  <node id="thanks" text="Настойка уже настаивается. Заходи, когда будет что ещё.">
+    <answer text="До встречи." to="end"/>
+  </node>
+</dialogue>
